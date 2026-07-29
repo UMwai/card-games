@@ -37,6 +37,7 @@ export interface ShengJiState {
   levelRank: Rank;
   teamLevels: [Rank, Rank];
   trick: Array<PlayedCards & { group: ShengJiGroup }>;
+  lastTrick: Array<PlayedCards & { group: ShengJiGroup }>;
   trickNumber: number;
   defenderPoints: number;
   lastAction: string;
@@ -200,6 +201,7 @@ export function createShengJiState(
     levelRank,
     teamLevels,
     trick: [],
+    lastTrick: [],
     trickNumber: 1,
     defenderPoints: 0,
     lastAction: `Seat ${dealer + 1} declares ${trumpSuit} and must bury 8 cards.`,
@@ -389,6 +391,7 @@ export function playShengJiAction(
   let group = analyzeShengJiPlay(selected, state.trumpSuit, state.levelRank);
   if (state.trick.length === 0) {
     if (!group) return { ok: false, error: "Lead a single, exact pair, or consecutive pair tractor." };
+    state.lastTrick = [];
   } else {
     const followerError = isLegalFollower(state, seat, selected);
     if (followerError) return { ok: false, error: followerError };
@@ -422,6 +425,7 @@ export function playShengJiAction(
   state.lastAction = `Seat ${winner + 1} takes trick ${state.trickNumber}${
     trickPoints ? ` with ${trickPoints} points` : ""
   }.`;
+  state.lastTrick = state.trick;
   state.trick = [];
   state.turn = winner;
   state.trickNumber += 1;
@@ -517,6 +521,7 @@ export function shengJiPublicState(state: ShengJiState): ShengJiPublicState {
     levelRank: state.levelRank,
     teamLevels: state.teamLevels,
     trick: state.trick.map(({ seat, cards, label }) => ({ seat, cards, label })),
+    lastTrick: state.lastTrick.map(({ seat, cards, label }) => ({ seat, cards, label })),
     trickNumber: state.trickNumber,
     defenderPoints: state.defenderPoints,
     buriedCount: state.buried.length,

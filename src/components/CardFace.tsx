@@ -22,6 +22,35 @@ interface Props {
   onPointerDown?: PointerEventHandler<HTMLButtonElement>;
 }
 
+function JokerArtwork() {
+  return (
+    <span className="joker-artwork" aria-hidden="true">
+      <svg viewBox="0 0 72 94" focusable="false">
+        <path
+          className="joker-halo"
+          d="M36 4 43 14l12-2-2 12 11 7-9 8 4 12-12 1-5 11-10-7-10 7-5-11-12-1 4-12-9-8 11-7-2-12 12 2Z"
+        />
+        <path
+          className="joker-hat"
+          d="M17 38c1-14 6-23 15-28 1 8 3 14 6 19 3-10 8-16 16-19 2 12 1 22-4 31l-12 6-15-4Z"
+        />
+        <circle className="joker-accent" cx="17" cy="38" r="4" />
+        <circle className="joker-accent" cx="32" cy="10" r="4" />
+        <circle className="joker-accent" cx="54" cy="10" r="4" />
+        <path
+          className="joker-face"
+          d="M23 38c6-5 18-6 27 1l-3 24c-3 9-17 13-23 1Z"
+        />
+        <path className="joker-detail" d="m27 47 6-2m8 1 5 2M29 58c4 5 10 6 15 1" />
+        <path className="joker-collar" d="m24 64 12 8 11-9 10 12-21 14-22-13Z" />
+        <circle className="joker-accent" cx="14" cy="76" r="4" />
+        <circle className="joker-accent" cx="57" cy="75" r="4" />
+      </svg>
+      <span>JOKER</span>
+    </span>
+  );
+}
+
 export function CardFace({
   card,
   selected = false,
@@ -97,7 +126,11 @@ export function CardFace({
         <b>{rank}</b>
         <i>{suitGlyph(card.suit)}</i>
       </span>
-      <span className="card-center">{card.suit === "joker" ? rank : suitGlyph(card.suit)}</span>
+      {card.suit === "joker" ? (
+        <JokerArtwork />
+      ) : (
+        <span className="card-center">{suitGlyph(card.suit)}</span>
+      )}
       <span className="card-watermark">囍</span>
       <span className="selection-check" aria-hidden="true">
         ✓

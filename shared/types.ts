@@ -46,6 +46,7 @@ export interface ShengJiPublicState {
   levelRank: Rank;
   teamLevels: [Rank, Rank];
   trick: PlayedCards[];
+  lastTrick: PlayedCards[];
   trickNumber: number;
   defenderPoints: number;
   buriedCount: number;

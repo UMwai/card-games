@@ -1387,7 +1387,7 @@ footer > span {
     radial-gradient(ellipse at center, rgba(54, 107, 88, 0.42), transparent 58%),
     linear-gradient(145deg, #153d34, #0d2d27);
   border: 1px solid rgba(228, 209, 167, 0.22);
-  border-radius: 48% / 12%;
+  border-radius: 48% 48% 12% 12% / 12% 12% 5% 5%;
   box-shadow:
     inset 0 0 100px rgba(0, 0, 0, 0.33),
     0 0 0 5px #241813,
@@ -1674,8 +1674,8 @@ footer > span {
 
 .mini-card-row {
   position: relative;
-  width: 105px;
-  height: 62px;
+  width: 116px;
+  height: 70px;
 }
 
 .mini-card-row .playing-card {
@@ -1695,7 +1695,40 @@ footer > span {
 
 .clearing-trick .center-play {
   pointer-events: none;
-  animation: trick-clear 150ms ease-in forwards;
+  animation: trick-clear 220ms ease-in forwards;
+}
+
+.trick-review-badge {
+  position: absolute;
+  z-index: 8;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  gap: 2px;
+  min-width: 112px;
+  padding: 6px 10px;
+  color: #2b1a10;
+  background: linear-gradient(135deg, #f0d895, #c99a3b);
+  border: 1px solid rgba(255, 239, 190, 0.78);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.36);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+  transform: translate(-50%, -50%);
+  animation: table-copy-arrive 180ms ease-out;
+}
+
+.trick-review-badge small {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.72;
+}
+
+.clearing-trick .trick-review-badge {
+  animation: trick-clear 220ms ease-in forwards;
 }
 
 @keyframes card-arrive {
@@ -1978,7 +2011,7 @@ footer > span {
 .player-hand .playing-card {
   position: absolute;
   z-index: var(--card-z);
-  bottom: -30px;
+  bottom: -24px;
   left: 0;
   transform: translateX(var(--hand-x)) rotate(var(--card-rotate));
   transform-origin: 50% 120%;
@@ -2044,8 +2077,8 @@ footer > span {
 .playing-card {
   position: relative;
   display: block;
-  width: 78px;
-  height: 112px;
+  width: 88px;
+  height: 126px;
   padding: 0;
   overflow: hidden;
   background:
@@ -2076,8 +2109,8 @@ footer > span {
 }
 
 .playing-card.compact {
-  width: 43px;
-  height: 61px;
+  width: 48px;
+  height: 68px;
   border-radius: 3px;
   pointer-events: none;
 }
@@ -2095,12 +2128,12 @@ footer > span {
 }
 
 .card-corner b {
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .card-corner i {
   margin-top: 5px;
-  font-size: 13px;
+  font-size: 14px;
   font-style: normal;
 }
 
@@ -2123,12 +2156,76 @@ footer > span {
   top: 50%;
   left: 50%;
   font-family: var(--serif);
-  font-size: 32px;
+  font-size: 36px;
   transform: translate(-50%, -50%);
 }
 
 .compact .card-center {
-  font-size: 17px;
+  font-size: 19px;
+}
+
+.joker-artwork {
+  position: absolute;
+  z-index: 1;
+  inset: 14% 9% 5%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  place-items: center;
+  pointer-events: none;
+}
+
+.joker-artwork svg {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: visible;
+}
+
+.joker-artwork > span {
+  margin-top: -2px;
+  font-family: var(--serif);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  line-height: 1;
+}
+
+.joker-halo {
+  fill: rgba(207, 159, 59, 0.18);
+}
+
+.joker-hat,
+.joker-collar {
+  fill: currentColor;
+}
+
+.joker-face {
+  fill: #ead8b7;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.joker-accent {
+  fill: #d1a03d;
+  stroke: #6d4b16;
+  stroke-width: 1;
+}
+
+.joker-detail {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.compact .joker-artwork {
+  inset: 12% 6% 4%;
+}
+
+.compact .joker-artwork > span {
+  margin-top: -1px;
+  font-size: 4px;
+  letter-spacing: 0.16em;
 }
 
 .card-watermark {

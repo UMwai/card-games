@@ -71,6 +71,7 @@ function shengJiState(options?: {
     levelRank: options?.levelRank ?? "2",
     teamLevels: ["2", "2"],
     trick: options?.trick ?? [],
+    lastTrick: [],
     trickNumber: 1,
     defenderPoints: 0,
     buriedCount: 0,

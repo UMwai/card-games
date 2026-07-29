@@ -5,7 +5,8 @@ import {
   chooseShengJiBotAction,
   createShengJiState,
   playShengJiAction,
-  shengJiEffectiveSuit
+  shengJiEffectiveSuit,
+  shengJiPublicState
 } from "./shengji";
 
 let cardCounter = 0;
@@ -46,6 +47,50 @@ describe("Sheng Ji engine", () => {
     const tractor = [...pair, card("8", "clubs", 0), card("8", "clubs", 1)];
     expect(analyzeShengJiPlay(pair, "spades", "2")?.pattern).toBe("pair");
     expect(analyzeShengJiPlay(tractor, "spades", "2")?.pattern).toBe("tractor");
+  });
+
+  it("publishes all four plays until the next trick starts", () => {
+    const state = createShengJiState(seededRandom(24), { dealer: 0 });
+    const openingCards = [
+      card("3", "clubs"),
+      card("4", "clubs"),
+      card("5", "clubs"),
+      card("6", "clubs")
+    ];
+    const nextCards = [
+      card("7", "diamonds"),
+      card("8", "diamonds"),
+      card("9", "diamonds"),
+      card("10", "diamonds")
+    ];
+    state.hands = openingCards.map((opening, seat) => [
+      opening,
+      nextCards[seat]
+    ]) as typeof state.hands;
+    state.phase = "playing";
+    state.turn = 0;
+
+    openingCards.forEach((opening, seat) => {
+      const result = playShengJiAction(state, seat as 0 | 1 | 2 | 3, {
+        type: "play",
+        cardIds: [opening.id]
+      });
+      expect(result.ok, result.error).toBe(true);
+    });
+
+    expect(state.trick).toEqual([]);
+    expect(state.lastTrick).toHaveLength(4);
+    expect(shengJiPublicState(state).lastTrick.flatMap((play) => play.cards)).toHaveLength(4);
+
+    const nextLeader = state.turn;
+    const nextCard = state.hands[nextLeader][0];
+    const result = playShengJiAction(state, nextLeader, {
+      type: "play",
+      cardIds: [nextCard.id]
+    });
+    expect(result.ok, result.error).toBe(true);
+    expect(state.lastTrick).toEqual([]);
+    expect(state.trick).toHaveLength(1);
   });
 
   it("plays a complete all-bot round, including burying and scoring", () => {

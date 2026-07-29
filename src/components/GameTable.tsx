@@ -39,6 +39,9 @@ interface Props {
 type TablePosition = "bottom" | "left" | "top" | "right";
 type DragMode = "select" | "deselect";
 
+const COMPLETED_PLAY_HOLD_MS = 1_650;
+const TRICK_CLEAR_ANIMATION_MS = 220;
+
 interface HandCardLayout {
   groupStart: boolean;
   handGroupOffset: number;
@@ -53,7 +56,7 @@ function relativePosition(seat: Seat, yours: Seat): TablePosition {
 
 function gamePlays(game: PublicGameState): PlayedCards[] {
   if (game.kind === "guandan") return game.currentPlay ? [game.currentPlay] : [];
-  return game.trick;
+  return game.trick.length > 0 ? game.trick : game.lastTrick;
 }
 
 function SeatBadge({
@@ -152,6 +155,7 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
     gamePlays(room.gameState!)
   );
   const [clearingTrick, setClearingTrick] = useState(false);
+  const [reviewingTrick, setReviewingTrick] = useState(false);
   const [portraitColumns, setPortraitColumns] = useState(() =>
     typeof window !== "undefined" &&
     window.matchMedia("(max-width: 369px) and (orientation: portrait)").matches
@@ -253,7 +257,7 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
       Math.ceil(
         (sortedHand.length - 1) * spread +
           handLayout.at(-1)!.handGroupOffset +
-          86
+          98
       )
     );
   }, [handLayout, sortedHand.length]);
@@ -309,21 +313,34 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
 
   const tablePlays = useMemo(() => {
     if (game.kind === "guandan") return game.currentPlay ? [game.currentPlay] : [];
-    return game.trick;
+    return game.trick.length > 0 ? game.trick : game.lastTrick;
   }, [game]);
+  const completedTable =
+    game.kind === "shengji"
+      ? game.trick.length === 0 && game.lastTrick.length > 0
+      : tablePlays.length === 0 && displayedPlays.length > 0;
 
   useEffect(() => {
-    if (tablePlays.length === 0 && displayedPlays.length > 0) {
-      setClearingTrick(true);
-      const timer = window.setTimeout(() => {
+    if (completedTable) {
+      if (tablePlays.length > 0) setDisplayedPlays(tablePlays);
+      setReviewingTrick(true);
+      const fadeTimer = window.setTimeout(() => {
+        setClearingTrick(true);
+      }, COMPLETED_PLAY_HOLD_MS);
+      const clearTimer = window.setTimeout(() => {
         setDisplayedPlays([]);
         setClearingTrick(false);
-      }, 150);
-      return () => window.clearTimeout(timer);
+        setReviewingTrick(false);
+      }, COMPLETED_PLAY_HOLD_MS + TRICK_CLEAR_ANIMATION_MS);
+      return () => {
+        window.clearTimeout(fadeTimer);
+        window.clearTimeout(clearTimer);
+      };
     }
     setDisplayedPlays(tablePlays);
     setClearingTrick(false);
-  }, [tablePlays]);
+    setReviewingTrick(false);
+  }, [completedTable, tablePlays]);
 
   const act = async (action: ClientAction) => {
     const result = await onAction(action);
@@ -393,6 +410,7 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
       : `Play ${selectedIds.length || ""}`.trim();
   const canPlay =
     yourTurn &&
+    !reviewingTrick &&
     selectedIds.length > 0 &&
     (game.kind !== "shengji" || game.phase !== "burying" || selectedIds.length === 8);
   const roundOver = game.phase === "roundOver";
@@ -456,7 +474,11 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
           ) : null
         )}
 
-        <div className={`center-table ${clearingTrick ? "clearing-trick" : ""}`}>
+        <div
+          className={`center-table ${reviewingTrick ? "reviewing-trick" : ""} ${
+            clearingTrick ? "clearing-trick" : ""
+          }`}
+        >
           <div className="center-mark">囍</div>
           {displayedPlays.map((play) => (
             <CenterPlay
@@ -474,6 +496,12 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
               />
               <span>{yourTurn ? "Your lead" : `${room.players[game.turn]?.name ?? "Player"} is thinking`}</span>
               <i />
+            </div>
+          )}
+          {reviewingTrick && (
+            <div className="trick-review-badge" role="status">
+              {game.kind === "shengji" ? "Trick complete" : "Table won"}
+              <small>Reviewing the cards</small>
             </div>
           )}
         </div>
@@ -615,7 +643,7 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
           <div className="game-actions">
             <button
               className="quiet-button hint-button"
-              disabled={!yourTurn || roundOver || matchOver}
+              disabled={!yourTurn || reviewingTrick || roundOver || matchOver}
               onClick={askForHint}
               aria-label="Suggest best play"
             >
@@ -634,7 +662,7 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
                 className={`quiet-button pass-button ${
                   recommendation?.action === "pass" ? "hinted" : ""
                 }`}
-                disabled={!yourTurn || !game.currentPlay}
+                disabled={!yourTurn || reviewingTrick || !game.currentPlay}
                 onClick={() => act({ type: "pass" })}
                 aria-label="Pass this play"
               >

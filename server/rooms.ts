@@ -56,6 +56,21 @@ const BOT_PROFILES: ReadonlyArray<{ name: string; avatar: AvatarId }> = [
   { name: "Moon Rabbit", avatar: "rabbit" }
 ];
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const BOT_PLAY_DELAY_MS = 760;
+const BOT_TABLE_CLEAR_DELAY_MS = 2_100;
+
+function botDelay(state: GameState): number {
+  const completedShengJiTrick =
+    state.kind === "shengji" &&
+    state.lastTrick.length > 0;
+  const clearedGuanDanTable =
+    state.kind === "guandan" &&
+    state.currentPlay === null &&
+    state.lastAction.startsWith("The table clears");
+  return completedShengJiTrick || clearedGuanDanTable
+    ? BOT_TABLE_CLEAR_DELAY_MS
+    : BOT_PLAY_DELAY_MS;
+}
 
 function cleanName(value: unknown): string {
   const name = String(value ?? "").trim().replace(/\s+/g, " ").slice(0, 18);
@@ -308,7 +323,7 @@ export class RoomManager {
       else playShengJiAction(room.state, seat, action);
       this.broadcast(room);
       this.scheduleBot(room);
-    }, 520);
+    }, botDelay(room.state));
   }
 
   private viewFor(room: Room, seat: Seat): RoomView {
