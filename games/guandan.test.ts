@@ -5,6 +5,7 @@ import {
   beatsGuanDan,
   chooseGuanDanBotAction,
   createGuanDanState,
+  guandanPublicState,
   playGuanDanAction
 } from "./guandan";
 
@@ -114,6 +115,39 @@ describe("Guan Dan engine", () => {
     const ten = analyzeGuanDanPlay(Array.from({ length: 10 }, () => card("9")), "2")!;
     expect(beatsGuanDan(jokerBomb, ten)).toBe(true);
     expect(beatsGuanDan(ten, jokerBomb)).toBe(false);
+  });
+
+  it("keeps each play on the table for one full seat rotation", () => {
+    const state = createGuanDanState(seededRandom(12), { startingSeat: 0 });
+    const rotationCards = [
+      [card("3"), card("7")],
+      [card("4"), card("8")],
+      [card("5"), card("9")],
+      [card("6"), card("10")]
+    ] as typeof state.hands;
+    const secondLeadId = rotationCards[0][1].id;
+    state.hands = rotationCards;
+
+    rotationCards.forEach((hand, seat) => {
+      const result = playGuanDanAction(state, seat as 0 | 1 | 2 | 3, {
+        type: "play",
+        cardIds: [hand[0].id]
+      });
+      expect(result.ok, result.error).toBe(true);
+    });
+
+    expect(guandanPublicState(state).tablePlays.map((play) => play.seat)).toEqual([
+      0, 1, 2, 3
+    ]);
+
+    const next = playGuanDanAction(state, 0, {
+      type: "play",
+      cardIds: [secondLeadId]
+    });
+    expect(next.ok, next.error).toBe(true);
+    expect(guandanPublicState(state).tablePlays.map((play) => play.seat)).toEqual([
+      1, 2, 3, 0
+    ]);
   });
 
   it("plays a complete all-bot round without stalling", () => {

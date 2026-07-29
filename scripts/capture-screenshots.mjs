@@ -189,21 +189,97 @@ async function verifyHintPlacementAndActions(page) {
   }
 }
 
+async function verifyDesktopTable(page) {
+  const viewport = page.viewportSize();
+  const stage = await page.locator(".table-stage").boundingBox();
+  const firstCard = await page.locator(".player-hand .playing-card").first().boundingBox();
+  if (!viewport || !stage || !firstCard) {
+    throw new Error("Could not measure the desktop table.");
+  }
+  if (
+    Math.abs(stage.x) > 1 ||
+    Math.abs(stage.y) > 1 ||
+    Math.abs(stage.width - viewport.width) > 2 ||
+    Math.abs(stage.height - viewport.height) > 2
+  ) {
+    throw new Error("The desktop playing surface is not using the full viewport.");
+  }
+  if (firstCard.width < 118 || firstCard.height < 170) {
+    throw new Error("Desktop hand cards are below the large-format readability target.");
+  }
+  if (firstCard.y < 0 || firstCard.y + firstCard.height > viewport.height + 1) {
+    throw new Error("A large desktop hand card is clipped outside the viewport.");
+  }
+  const centerCard = page.locator(".center-table .playing-card").first();
+  if ((await centerCard.count()) > 0) {
+    const box = await centerCard.boundingBox();
+    if (!box || box.width < 70 || box.height < 100) {
+      throw new Error("A desktop center-play card is below the readability target.");
+    }
+  }
+}
+
 async function verifyLandscapeHand(page) {
   const cards = page.locator(".player-hand .playing-card");
   if ((await cards.count()) !== 27) throw new Error("Landscape hand does not contain all 27 cards.");
-  const metrics = await page.locator(".hand-scroll").evaluate((element) => ({
+  const handScroll = page.locator(".hand-scroll");
+  const metrics = await handScroll.evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth
   }));
   if (metrics.scrollWidth <= metrics.clientWidth) {
     throw new Error("Landscape hand is not using its intended horizontal card rail.");
   }
+  const frame = await handScroll.boundingBox();
+  if (!frame) throw new Error("Landscape hand frame is missing.");
+  const cardBoxes = await cards.evaluateAll((elements) =>
+    elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { top: box.top, bottom: box.bottom };
+    })
+  );
+  if (
+    cardBoxes.some(
+      ({ top, bottom }) => top < frame.y - 1 || bottom > frame.y + frame.height + 1
+    )
+  ) {
+    throw new Error("A landscape card is vertically clipped by the hand rail.");
+  }
   const first = await cards.nth(0).boundingBox();
   const second = await cards.nth(1).boundingBox();
   if (!first || !second || second.x - first.x < 32) {
     throw new Error("Landscape exposed card pitch is below the 32px readability target.");
   }
+  if (first.x < frame.x + 4) {
+    throw new Error("The first landscape card lacks a safe inset at the start of the rail.");
+  }
+  await handScroll.evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+  });
+  const last = await cards.last().boundingBox();
+  if (!last || last.x + last.width > frame.x + frame.width - 4) {
+    throw new Error("The last landscape card lacks a safe inset at the end of the rail.");
+  }
+  await handScroll.evaluate((element) => {
+    element.scrollLeft = 0;
+  });
+  await cards.nth(2).click({ position: { x: 10, y: 18 } });
+  const selectionMetrics = await Promise.all(
+    [cards.nth(2), cards.nth(3)].map((card) =>
+      card.evaluate((element) => ({
+        zIndex: Number(getComputedStyle(element).zIndex),
+        selected: element.classList.contains("selected")
+      }))
+    )
+  );
+  if (!selectionMetrics[0].selected || selectionMetrics[0].zIndex >= selectionMetrics[1].zIndex) {
+    throw new Error("A selected landscape card obscures the next card in the hand.");
+  }
+  const selected = await cards.nth(2).boundingBox();
+  if (!selected || selected.y < frame.y - 1 || selected.y + selected.height > frame.y + frame.height + 1) {
+    throw new Error("A selected landscape card is clipped by the hand rail.");
+  }
+  await page.getByRole("button", { name: "Clear selected cards" }).click();
   const actionHeights = await page.locator(".game-actions button").evaluateAll((buttons) =>
     buttons.map((button) => button.getBoundingClientRect().height)
   );
@@ -329,6 +405,7 @@ try {
     });
     await page.waitForSelector(".seat-bottom.active-seat", { timeout: 20_000 });
     await settle(page);
+    await verifyDesktopTable(page);
     await page.screenshot({
       path: path.join(screenshotDir, "04-shengji-table.png"),
       fullPage: false
@@ -338,6 +415,7 @@ try {
 
   {
     const { context, page } = await openGuanDanWithWild(browser, { width: 1440, height: 1000 });
+    await verifyDesktopTable(page);
     await page.screenshot({
       path: path.join(screenshotDir, "05-guandan-table.png"),
       fullPage: false

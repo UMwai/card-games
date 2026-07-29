@@ -69,7 +69,7 @@ export function CardFace({
 }: Props) {
   const red = card.suit === "hearts" || card.suit === "diamonds" || card.rank === "RJ";
   const rank = card.rank === "BJ" ? "小王" : card.rank === "RJ" ? "大王" : card.rank;
-  const spread = Math.min(38, Math.max(22, 900 / Math.max(total - 1, 1)));
+  const spread = Math.min(44, Math.max(28, 1040 / Math.max(total - 1, 1)));
   const handOffset = index * spread + handGroupOffset;
   const rotation = total > 1 ? (index - (total - 1) / 2) * Math.min(0.4, 8 / total) : 0;
   const rowColumns = Math.min(mobileColumns, Math.max(total, 1));
@@ -85,8 +85,8 @@ export function CardFace({
     "--card-rotate": `${rotation}deg`,
     "--card-z": index,
     "--mobile-left": `${mobileProgress * 100}%`,
-    "--mobile-shift": `${mobileProgress * -54 + mobileGapAdjustment}px`,
-    "--mobile-y": `${mobileRow * 47}px`
+    "--mobile-shift": `${mobileProgress * -62 + mobileGapAdjustment}px`,
+    "--mobile-y": `${mobileRow * 54}px`
   } as CSSProperties;
   const spokenRank =
     card.rank === "BJ" ? "black joker" : card.rank === "RJ" ? "red joker" : card.rank;

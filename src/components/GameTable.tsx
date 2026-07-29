@@ -39,8 +39,7 @@ interface Props {
 type TablePosition = "bottom" | "left" | "top" | "right";
 type DragMode = "select" | "deselect";
 
-const COMPLETED_PLAY_HOLD_MS = 1_650;
-const TRICK_CLEAR_ANIMATION_MS = 220;
+const COMPLETED_PLAY_REVIEW_MS = 1_650;
 
 interface HandCardLayout {
   groupStart: boolean;
@@ -55,7 +54,7 @@ function relativePosition(seat: Seat, yours: Seat): TablePosition {
 }
 
 function gamePlays(game: PublicGameState): PlayedCards[] {
-  if (game.kind === "guandan") return game.currentPlay ? [game.currentPlay] : [];
+  if (game.kind === "guandan") return game.tablePlays;
   return game.trick.length > 0 ? game.trick : game.lastTrick;
 }
 
@@ -154,7 +153,6 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
   const [displayedPlays, setDisplayedPlays] = useState<PlayedCards[]>(() =>
     gamePlays(room.gameState!)
   );
-  const [clearingTrick, setClearingTrick] = useState(false);
   const [reviewingTrick, setReviewingTrick] = useState(false);
   const [portraitColumns, setPortraitColumns] = useState(() =>
     typeof window !== "undefined" &&
@@ -251,13 +249,16 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
 
   const handRailWidth = useMemo(() => {
     if (!sortedHand.length) return 230;
-    const spread = Math.min(38, Math.max(22, 900 / Math.max(sortedHand.length - 1, 1)));
+    const spread = Math.min(
+      44,
+      Math.max(28, 1040 / Math.max(sortedHand.length - 1, 1))
+    );
     return Math.max(
       230,
       Math.ceil(
         (sortedHand.length - 1) * spread +
           handLayout.at(-1)!.handGroupOffset +
-          98
+          132
       )
     );
   }, [handLayout, sortedHand.length]);
@@ -312,33 +313,24 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
   };
 
   const tablePlays = useMemo(() => {
-    if (game.kind === "guandan") return game.currentPlay ? [game.currentPlay] : [];
+    if (game.kind === "guandan") return game.tablePlays;
     return game.trick.length > 0 ? game.trick : game.lastTrick;
   }, [game]);
   const completedTable =
     game.kind === "shengji"
       ? game.trick.length === 0 && game.lastTrick.length > 0
-      : tablePlays.length === 0 && displayedPlays.length > 0;
+      : game.currentPlay === null && game.tablePlays.length > 0;
 
   useEffect(() => {
     if (completedTable) {
-      if (tablePlays.length > 0) setDisplayedPlays(tablePlays);
+      setDisplayedPlays(tablePlays);
       setReviewingTrick(true);
-      const fadeTimer = window.setTimeout(() => {
-        setClearingTrick(true);
-      }, COMPLETED_PLAY_HOLD_MS);
-      const clearTimer = window.setTimeout(() => {
-        setDisplayedPlays([]);
-        setClearingTrick(false);
+      const reviewTimer = window.setTimeout(() => {
         setReviewingTrick(false);
-      }, COMPLETED_PLAY_HOLD_MS + TRICK_CLEAR_ANIMATION_MS);
-      return () => {
-        window.clearTimeout(fadeTimer);
-        window.clearTimeout(clearTimer);
-      };
+      }, COMPLETED_PLAY_REVIEW_MS);
+      return () => window.clearTimeout(reviewTimer);
     }
     setDisplayedPlays(tablePlays);
-    setClearingTrick(false);
     setReviewingTrick(false);
   }, [completedTable, tablePlays]);
 
@@ -416,7 +408,7 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
   const roundOver = game.phase === "roundOver";
   const matchOver = game.kind === "guandan" && game.phase === "matchOver";
   const portraitRows = Math.max(1, Math.ceil(sortedHand.length / portraitColumns));
-  const portraitZoneHeight = Math.max(226, 186 + (portraitRows - 1) * 47);
+  const portraitZoneHeight = Math.max(252, 198 + (portraitRows - 1) * 54);
   const sortHint = (mode: HandSortMode) =>
     mode === "smart"
       ? game.kind === "guandan"
@@ -474,11 +466,7 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
           ) : null
         )}
 
-        <div
-          className={`center-table ${reviewingTrick ? "reviewing-trick" : ""} ${
-            clearingTrick ? "clearing-trick" : ""
-          }`}
-        >
+        <div className={`center-table ${reviewingTrick ? "reviewing-trick" : ""}`}>
           <div className="center-mark">囍</div>
           {displayedPlays.map((play) => (
             <CenterPlay

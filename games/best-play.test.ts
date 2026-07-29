@@ -48,6 +48,7 @@ function guanDanState(
     levelRank,
     teamLevels: [levelRank, levelRank],
     currentPlay,
+    tablePlays: currentPlay ? [currentPlay] : [],
     passes: 0,
     finishOrder: [],
     lastAction: "",

@@ -41,6 +41,7 @@ export interface GuanDanState {
   declaringTeam: 0 | 1;
   teamLevels: [Rank, Rank];
   currentPlay: (PlayedCards & { combo: GuanDanCombo }) | null;
+  tablePlays: PlayedCards[];
   passes: number;
   finishOrder: Seat[];
   lastAction: string;
@@ -242,6 +243,7 @@ export function createGuanDanState(
     declaringTeam,
     teamLevels,
     currentPlay: null,
+    tablePlays: [],
     passes: 0,
     finishOrder: [],
     lastAction: "The cards are dealt. Lead any combination.",
@@ -312,6 +314,7 @@ export function playGuanDanAction(
 
   if (action.type === "pass") {
     if (!state.currentPlay) return { ok: false, error: "You cannot pass when leading." };
+    state.tablePlays = state.tablePlays.filter((play) => play.seat !== seat);
     state.passes += 1;
     state.lastAction = `Seat ${seat + 1} passes.`;
     const activeCount = state.hands.filter((hand) => hand.length > 0).length;
@@ -345,8 +348,15 @@ export function playGuanDanAction(
     return { ok: false, error: `Play a higher ${state.currentPlay.combo.label}, or use a bomb.` };
   }
 
+  const startsNewTable = state.currentPlay === null;
   state.hands[seat] = removeCards(state.hands[seat], action.cardIds);
   state.currentPlay = { seat, cards: selected, combo, label: combo.label };
+  state.tablePlays = [
+    ...(!startsNewTable
+      ? state.tablePlays.filter((play) => play.seat !== seat)
+      : []),
+    { seat, cards: selected, label: combo.label }
+  ];
   state.leader = seat;
   state.passes = 0;
   state.lastAction = `Seat ${seat + 1} plays ${combo.label}.`;
@@ -483,6 +493,7 @@ export function guandanPublicState(state: GuanDanState): GuanDanPublicState {
           label: state.currentPlay.combo.label
         }
       : null,
+    tablePlays: state.tablePlays.map(({ seat, cards, label }) => ({ seat, cards, label })),
     passes: state.passes,
     finishOrder: state.finishOrder,
     lastAction: state.lastAction,

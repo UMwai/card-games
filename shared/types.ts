@@ -30,6 +30,7 @@ export interface GuanDanPublicState {
   levelRank: Rank;
   teamLevels: [Rank, Rank];
   currentPlay: PlayedCards | null;
+  tablePlays: PlayedCards[];
   passes: number;
   finishOrder: Seat[];
   lastAction: string;

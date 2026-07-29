@@ -15,6 +15,8 @@ Choose from all 12 Chinese zodiac animals. The selected chibi avatar follows tha
 
 The chosen layout is remembered separately for each game on that device.
 
+The live table is an edge-to-edge, full-viewport felt surface rather than a decorative oval. Large-format hand cards use the entire bottom rail, center plays are scaled for at-a-glance reading, and each played set remains at its seat for a complete turn rotation before that seat acts again.
+
 On phones, a dedicated **Sort** button opens those choices without crowding the hand. Portrait mode shows a 27-card Guan Dan hand in three rows with a verified minimum 38px exposed pitch. Phones narrower than 370px automatically use four centered rows of up to eight cards to preserve the same touch density. Rotating to landscape switches to a wider, more readable single-row rail that can be swiped horizontally, but portrait remains the recommended play surface.
 
 A separate **Hint** button analyzes only your hand and public table information. It preselects a conservative legal play—or highlights **Pass**—and explains why, but never submits the move for you. Guan Dan hints conserve bombs and marked heart-level wilds unless the situation is urgent; Sheng Ji hints respect follow-suit shapes, protect trump, and can feed points when your partner is winning. Players can tap cards or drag across a combination with subtle haptic ticks where supported, prepare their next play while opponents act, then confirm with the separate Play button.
@@ -132,7 +134,7 @@ npx playwright install chromium
 npm run screenshots
 ```
 
-The script builds the production app, starts an isolated server on port `4199`, creates real rooms for both games, waits for the human turn, and replaces the fourteen images in `docs/screenshots/`. Browser checks verify the 3-row standard-phone and 4-row narrow-phone layouts at a minimum 38px pitch, 44px action targets, corrected Hint/status placement, drag-across selection, off-turn selection persistence, and Best Play selection without automatic submission. Landscape verifies a readable 32px-or-better card pitch, horizontal scrolling, and no unintended vertical scrolling. The harness also verifies that a phone player’s chosen zodiac survives joining and appears at the table. Guan Dan captures deliberately wait for a hand containing a heart-level wild card so its special treatment remains visually covered.
+The script builds the production app, starts an isolated server on port `4199`, creates real rooms for both games, waits for the human turn, and replaces the fourteen images in `docs/screenshots/`. Browser checks verify the full-viewport desktop surface, large-format desktop hand and center cards, 3-row standard-phone and 4-row narrow-phone layouts at a minimum 38px pitch, 44px action targets, corrected Hint/status placement, drag-across selection, off-turn selection persistence, and Best Play selection without automatic submission. Landscape verifies a readable 32px-or-better card pitch, horizontal scrolling, and no unintended vertical scrolling. The harness also verifies that a phone player’s chosen zodiac survives joining and appears at the table. Guan Dan captures deliberately wait for a hand containing a heart-level wild card so its special treatment remains visually covered.
 
 ## Project map
 
