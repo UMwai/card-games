@@ -63,19 +63,21 @@ A separate **Hint** button analyzes only your hand and public table information.
 ## Launch
 
 ```bash
-cd /home/umwai/card-games
-npm install
+cd card-games
+npm ci --include=dev
 npm run dev
 ```
 
 Open `http://localhost:5173` while developing. The terminal also prints the LAN address friends should use.
 
-For the single production server:
+For the single production server, keep the development dependencies installed because TypeScript and Vite are required to create the production bundle:
 
 ```bash
 npm run build
 npm start
 ```
+
+If `node_modules` was installed with development dependencies omitted, run `npm ci --include=dev` before building.
 
 Open `http://localhost:4173`. The server prints a `Friends:` URL and encodes that address in room QR codes. If automatic network detection selects the wrong interface, set the URL explicitly:
 

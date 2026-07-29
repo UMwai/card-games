@@ -7,8 +7,9 @@
   "scripts": {
     "dev": "concurrently -k -n SERVER,WEB -c yellow,cyan \"tsx watch server/index.ts\" \"vite --host 0.0.0.0\"",
     "clean": "node scripts/clean.mjs",
+    "prebuild": "node scripts/check-build-dependencies.mjs",
     "build": "npm run clean && tsc -p tsconfig.server.json && vite build",
-    "start": "node dist-server/server/index.js",
+    "start": "node scripts/start.mjs",
     "screenshots": "npm run build && node scripts/capture-screenshots.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
