@@ -192,7 +192,8 @@ function guanDanFragmentPenalty(hand: readonly Card[], cards: readonly Card[], l
 function guanDanCandidateScore(
   candidate: GuanDanCandidate,
   context: BestPlayContext,
-  urgent: boolean
+  urgent: boolean,
+  contest: boolean
 ): number {
   const state = context.state as GuanDanPublicState;
   const wildCount = candidate.cards.filter(
@@ -209,6 +210,7 @@ function guanDanCandidateScore(
   if (candidate.combo.type === "single" && !state.currentPlay) score += 18;
   if (candidate.cards.length === context.hand.length) score -= 10_000;
   if (urgent) score -= candidate.cards.length * 14;
+  if (contest) score -= candidate.combo.strength * 12;
   return score;
 }
 
@@ -218,13 +220,21 @@ function recommendGuanDan(context: BestPlayContext): PlayRecommendation | null {
   const currentCombo = state.currentPlay
     ? analyzeGuanDanPlay(state.currentPlay.cards, state.levelRank)
     : null;
-  const urgent = playerIsUrgent(context);
+  // An opponent whose winning play just emptied (or nearly emptied) their hand
+  // passes the lead to their partner unless this play is beaten, so answer with
+  // real strength instead of the cheapest counter.
+  const contest = Boolean(
+    state.currentPlay &&
+      state.currentPlay.seat % 2 !== context.seat % 2 &&
+      (context.players[state.currentPlay.seat]?.cardsLeft ?? Number.MAX_SAFE_INTEGER) <= 2
+  );
+  const urgent = playerIsUrgent(context) || contest;
   const candidates = guanDanPlayCandidates(context.hand, state.levelRank)
     .filter(({ combo }) => !currentCombo || beatsGuanDan(combo, currentCombo))
     .sort(
       (a, b) =>
-        guanDanCandidateScore(a, context, urgent) -
-          guanDanCandidateScore(b, context, urgent) ||
+        guanDanCandidateScore(a, context, urgent, contest) -
+          guanDanCandidateScore(b, context, urgent, contest) ||
         cardKey(a.cards).localeCompare(cardKey(b.cards))
     );
 
@@ -280,9 +290,11 @@ function recommendGuanDan(context: BestPlayContext): PlayRecommendation | null {
       : choice.combo.bombPower !== undefined
         ? "An opponent is nearly out, so spending this bomb is worth the control."
         : state.currentPlay
-          ? `This is the lowest-cost ${choice.combo.label.toLowerCase()} that wins without spending a bomb${
-              usesWild ? "; it uses a marked heart-level wild" : ""
-            }.`
+          ? contest
+            ? `An opponent is going out — this strong ${choice.combo.label.toLowerCase()} fights to keep their team from taking the lead.`
+            : `This is the lowest-cost ${choice.combo.label.toLowerCase()} that wins without spending a bomb${
+                usesWild ? "; it uses a marked heart-level wild" : ""
+              }.`
           : `Moves ${choice.cards.length} card${choice.cards.length === 1 ? "" : "s"} while preserving bombs and marked wilds where possible.`;
   return {
     action: "play",
@@ -417,10 +429,17 @@ function shengJiFollowCandidates(
   );
 }
 
-function shengJiLeadScore(cards: readonly Card[], state: ShengJiPublicState): number {
+function shengJiLeadScore(
+  cards: readonly Card[],
+  state: ShengJiPublicState,
+  handSize: number
+): number {
   const group = analyzeShengJiPlay(cards, state.trumpSuit, state.levelRank)!;
   const points = cards.reduce((total, card) => total + cardPoints(card), 0);
   const trumpPenalty = group.effectiveSuit === "trump" ? 80 : 0;
+  // The final lead decides who banks the trick (and the kitty for defenders),
+  // so strength beats economy when this play empties the hand.
+  if (cards.length === handSize) return -1000 - group.topStrength * 4;
   return points * 18 + trumpPenalty + group.topStrength * 2 - cards.length * 36;
 }
 
@@ -453,7 +472,8 @@ function recommendShengJi(context: BestPlayContext): PlayRecommendation | null {
   if (state.trick.length === 0) {
     const candidates = shengJiLeadCandidates(context.hand, state).sort(
       (a, b) =>
-        shengJiLeadScore(a, state) - shengJiLeadScore(b, state) ||
+        shengJiLeadScore(a, state, context.hand.length) -
+          shengJiLeadScore(b, state, context.hand.length) ||
         cardKey(a).localeCompare(cardKey(b))
     );
     const choice = candidates[0];
@@ -486,6 +506,13 @@ function recommendShengJi(context: BestPlayContext): PlayRecommendation | null {
     .flatMap((play) => play.cards)
     .reduce((total, card) => total + cardPoints(card), 0);
   const urgent = playerIsUrgent(context);
+  // The last tricks decide who banks the remaining points (and, for the
+  // defenders, the multiplied kitty), so card economy stops mattering there.
+  const endgame = context.hand.length <= lead.size * 2;
+  const opponentFollows = Array.from(
+    { length: 3 - state.trick.length },
+    (_, offset) => (context.seat + offset + 1) % 4
+  ).some((seat) => seat % 2 !== context.seat % 2);
 
   const score = (cards: Card[]): number => {
     const selectedPoints = cards.reduce((total, card) => total + cardPoints(card), 0);
@@ -501,8 +528,11 @@ function recommendShengJi(context: BestPlayContext): PlayRecommendation | null {
     const trumpUsed = cards.filter(
       (card) => shengJiEffectiveSuit(card, state.trumpSuit, state.levelRank) === "trump"
     ).length;
+    // Endgame with an opponent still to act: take the trick with the strongest
+    // winner so it cannot be cheaply overtaken.
+    if (endgame && opponentFollows && wins) return -900 - strength * 6;
     if (partnerWinning) return strength - selectedPoints * 34 + (wins ? 30 : 0);
-    const worthWinning = tablePoints + selectedPoints >= 10 || urgent;
+    const worthWinning = tablePoints + selectedPoints >= 10 || urgent || endgame;
     return strength + trumpUsed * 12 + (wins ? (worthWinning ? -520 : 18) : 0);
   };
   candidates.sort(

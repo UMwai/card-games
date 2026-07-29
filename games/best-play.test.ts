@@ -237,6 +237,81 @@ describe("best-play advisor", () => {
     expect(hint?.label).toMatch(/take/i);
   });
 
+  it("answers a finishing opponent with its strongest card, not the cheapest", () => {
+    const current = [card("3")];
+    const hand = [card("4"), card("7"), card("A")];
+    const hint = recommendBestPlay(
+      context(
+        hand,
+        guanDanState({ seat: 1, cards: current, label: "Single" }),
+        0,
+        [10, 0, 10, 10]
+      )
+    );
+    expect(hint?.action).toBe("play");
+    const selected = hand.find((candidate) => hint?.cardIds.includes(candidate.id));
+    expect(selected?.rank).toBe("A");
+  });
+
+  it("spends a bomb to contest an opponent's finishing play", () => {
+    const current = [card("A"), card("A", "spades")];
+    const hand = [
+      card("3"),
+      card("3", "spades"),
+      card("3", "diamonds"),
+      card("3", "hearts"),
+      card("4")
+    ];
+    const hint = recommendBestPlay(
+      context(
+        hand,
+        guanDanState({ seat: 1, cards: current, label: "Pair" }),
+        0,
+        [5, 0, 7, 8]
+      )
+    );
+    expect(hint?.action).toBe("play");
+    expect(analyzeGuanDanPlay(
+      hand.filter((candidate) => hint?.cardIds.includes(candidate.id)),
+      "2"
+    )?.type).toBe("bomb");
+  });
+
+  it("fights a pointless Sheng Ji endgame trick with its strongest card", () => {
+    const trick = [{ seat: 0 as Seat, cards: [card("3", "clubs")], label: "single" }];
+    const hand = [card("A", "clubs"), card("5", "clubs")];
+    const state = shengJiState({ turn: 1, trick });
+    const hint = recommendBestPlay(context(hand, state, 1, [1, 2, 2, 2]));
+    const selected = hand.find((candidate) => hint?.cardIds.includes(candidate.id));
+    expect(selected?.rank).toBe("A");
+  });
+
+  it("reinforces a weakly winning partner when an opponent still follows late", () => {
+    const trick = [
+      { seat: 0 as Seat, cards: [card("6", "clubs")], label: "single" },
+      { seat: 1 as Seat, cards: [card("3", "clubs")], label: "single" }
+    ];
+    const hand = [card("A", "clubs"), card("7", "clubs")];
+    const state = shengJiState({ turn: 2, trick });
+    const hint = recommendBestPlay(context(hand, state, 2, [1, 1, 2, 2]));
+    const selected = hand.find((candidate) => hint?.cardIds.includes(candidate.id));
+    expect(selected?.rank).toBe("A");
+  });
+
+  it("still ducks a pointless trick early in a Sheng Ji hand", () => {
+    const trick = [{ seat: 0 as Seat, cards: [card("Q", "clubs")], label: "single" }];
+    const hand = [
+      card("A", "clubs"),
+      card("4", "clubs"),
+      card("6", "diamonds"),
+      card("9", "hearts")
+    ];
+    const state = shengJiState({ turn: 1, trick });
+    const hint = recommendBestPlay(context(hand, state, 1));
+    const selected = hand.find((candidate) => hint?.cardIds.includes(candidate.id));
+    expect(selected?.rank).toBe("4");
+  });
+
   it("is deterministic for identical visible state", () => {
     const hand = [card("4"), card("4", "spades"), card("7"), card("8")];
     const input = context(hand, guanDanState());

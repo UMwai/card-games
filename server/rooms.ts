@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Server, Socket } from "socket.io";
+import { recommendBestPlay } from "../games/best-play.js";
 import {
   chooseGuanDanBotAction,
   createGuanDanState,
@@ -312,18 +313,47 @@ export class RoomManager {
     if (!player?.isBot) return;
     room.botTimer = setTimeout(() => {
       if (!room.state || room.status !== "playing") return;
-      const seat = room.state.turn;
+      const state = room.state;
+      const seat = state.turn;
       const active = room.players[seat];
       if (!active?.isBot) return;
-      const action =
-        room.state.kind === "guandan"
-          ? chooseGuanDanBotAction(room.state, seat)
-          : chooseShengJiBotAction(room.state, seat);
-      if (room.state.kind === "guandan") playGuanDanAction(room.state, seat, action);
-      else playShengJiAction(room.state, seat, action);
+      const apply = (action: ClientAction) =>
+        state.kind === "guandan"
+          ? playGuanDanAction(state, seat, action)
+          : playShengJiAction(state, seat, action);
+      if (!apply(this.botAction(room, seat)).ok) {
+        apply(
+          state.kind === "guandan"
+            ? chooseGuanDanBotAction(state, seat)
+            : chooseShengJiBotAction(state, seat)
+        );
+      }
       this.broadcast(room);
       this.scheduleBot(room);
     }, botDelay(room.state));
+  }
+
+  private botAction(room: Room, seat: Seat): ClientAction {
+    const state = room.state!;
+    const recommendation = recommendBestPlay({
+      hand: state.hands[seat],
+      state: state.kind === "guandan" ? guandanPublicState(state) : shengJiPublicState(state),
+      seat,
+      players: room.players.map((player) =>
+        player
+          ? { seat: player.seat, team: player.team, cardsLeft: state.hands[player.seat].length }
+          : null
+      )
+    });
+    if (recommendation?.action === "pass") return { type: "pass" };
+    if (recommendation) {
+      return recommendation.action === "bury"
+        ? { type: "bury", cardIds: recommendation.cardIds }
+        : { type: "play", cardIds: recommendation.cardIds };
+    }
+    return state.kind === "guandan"
+      ? chooseGuanDanBotAction(state, seat)
+      : chooseShengJiBotAction(state, seat);
   }
 
   private viewFor(room: Room, seat: Seat): RoomView {
