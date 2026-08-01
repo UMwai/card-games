@@ -1386,6 +1386,17 @@ footer > span {
 }
 
 .table-stage {
+  /* One chain drives the whole desktop stack: the hand-card height sets the
+     hand zone, the hand zone sets the status band above it, and what is left
+     over becomes the felt. The laptop-height queries only retune these. */
+  --hand-card-h: 174px;
+  --hand-card-w: 122px;
+  --hand-header-h: 54px;
+  --hand-zone-h: calc(var(--hand-card-h) + 78px);
+  --felt-min-h: 230px;
+  --felt-top-reserve: 254px;
+  --felt-bottom: max(calc(var(--hand-zone-h) + 200px), calc(50% - 148px));
+
   position: relative;
   width: 100%;
   height: calc(100dvh - env(safe-area-inset-top));
@@ -1408,7 +1419,7 @@ footer > span {
 
 .felt-halo {
   position: absolute;
-  inset: 114px 24px 278px;
+  inset: 114px 24px calc(var(--hand-zone-h) + 44px);
   border: 1px solid rgba(235, 219, 180, 0.09);
   border-radius: 2px;
 }
@@ -1508,7 +1519,7 @@ footer > span {
 }
 
 .seat-bottom {
-  bottom: 276px;
+  bottom: calc(var(--hand-zone-h) + 128px);
   left: 50%;
   transform: translateX(-50%);
 }
@@ -1601,14 +1612,20 @@ footer > span {
   background: var(--gold);
 }
 
+/* Anchored to the bottom so the felt can never grow into the status stack
+   (seat badge → hint → last action → hand) that sits above the hand zone. */
 .center-table {
   position: absolute;
   z-index: 4;
-  top: 43%;
+  bottom: var(--felt-bottom);
   left: 50%;
   width: min(720px, 58vw);
-  height: 330px;
-  transform: translate(-50%, -50%);
+  height: clamp(
+    var(--felt-min-h),
+    calc(100% - var(--felt-bottom) - var(--felt-top-reserve)),
+    330px
+  );
+  transform: translateX(-50%);
 }
 
 .center-mark {
@@ -1788,17 +1805,20 @@ footer > span {
 
 .action-callout {
   position: absolute;
-  z-index: 5;
+  z-index: 25;
   right: 50%;
-  bottom: 264px;
+  bottom: calc(var(--hand-zone-h) + 10px);
   display: flex;
   gap: 9px;
   align-items: center;
-  max-width: 480px;
+  max-width: min(520px, calc(100% - 560px));
   padding: 7px 12px;
+  overflow: hidden;
   color: #c1c9c2;
-  background: rgba(8, 21, 17, 0.56);
+  background: rgba(8, 21, 17, 0.82);
   font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transform: translateX(50%);
 }
 
@@ -1806,7 +1826,7 @@ footer > span {
   position: absolute;
   z-index: 20;
   right: 50%;
-  bottom: 302px;
+  bottom: calc(var(--hand-zone-h) + 45px);
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) 32px;
   gap: 9px;
@@ -1889,7 +1909,7 @@ footer > span {
   right: 0;
   bottom: 0;
   left: 0;
-  min-height: 252px;
+  min-height: var(--hand-zone-h);
   padding: 0;
   background:
     linear-gradient(180deg, rgba(10, 25, 21, 0.3), rgba(6, 17, 14, 0.92) 40%),
@@ -1902,17 +1922,23 @@ footer > span {
   background: linear-gradient(180deg, rgba(49, 16, 15, 0.25), rgba(28, 9, 9, 0.95) 40%);
 }
 
+/* One header line above the rail: identity never truncates and the gesture
+   note stays clear of the cards. Portrait/landscape restack it as a column. */
 .hand-label {
   position: absolute;
-  top: 17px;
+  top: 15px;
+  right: 430px;
   bottom: auto;
   left: 24px;
   display: flex;
-  flex-direction: column;
-  width: 150px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  width: auto;
 }
 
 .hand-label span {
+  flex: 0 0 auto;
   color: var(--gold-pale);
   font-size: 9px;
   font-weight: 700;
@@ -1922,9 +1948,10 @@ footer > span {
 
 .hand-label b {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 0;
   overflow: hidden;
   font-family: var(--serif);
   font-size: 11px;
@@ -1938,19 +1965,25 @@ footer > span {
 }
 
 .hand-gesture-note {
-  margin-top: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-top: 0;
+  overflow: hidden;
   color: #8fa197;
   font-size: 8px;
   font-style: normal;
   line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sort-tray {
   position: absolute;
   z-index: 15;
-  top: 18px;
+  top: 13px;
+  right: 246px;
   bottom: auto;
-  left: 190px;
+  left: auto;
   display: grid;
   grid-template-columns: auto repeat(3, 1fr);
   align-items: center;
@@ -1994,22 +2027,58 @@ footer > span {
   display: none;
 }
 
+/* Flex + auto margins centre the rail while it fits and fall back to a
+   flush-left, fully scrollable rail once it does not (auto margins collapse
+   to zero against negative free space, so nothing overflows to the left). */
 .hand-scroll {
   position: absolute;
-  top: 56px;
+  top: var(--hand-header-h);
   right: 246px;
   bottom: 0;
   left: 20px;
-  height: 196px;
+  display: flex;
+  height: calc(var(--hand-card-h) + 20px);
+  padding: 0 18px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-color: rgba(213, 168, 73, 0.45) transparent;
   scrollbar-width: thin;
+  overscroll-behavior-x: contain;
 }
 
+.hand-scroll.hand-fade-start,
+.hand-scroll.hand-fade-end {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 var(--hand-fade-start, 0px),
+    #000 calc(100% - var(--hand-fade-end, 0px)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 var(--hand-fade-start, 0px),
+    #000 calc(100% - var(--hand-fade-end, 0px)),
+    transparent 100%
+  );
+}
+
+.hand-scroll.hand-fade-start {
+  --hand-fade-start: 46px;
+}
+
+.hand-scroll.hand-fade-end {
+  --hand-fade-end: 46px;
+}
+
+/* The rail width comes from the card count (JS), corrected here for whatever
+   card width this viewport is using so the trailing slack stays ~10px. */
 .player-hand {
   position: relative;
-  height: 190px;
+  flex: 0 0 auto;
+  width: calc(var(--hand-rail-width, 230px) - (122px - var(--hand-card-w)));
+  height: calc(var(--hand-card-h) + 16px);
   margin: 0 auto;
   user-select: none;
   -webkit-user-select: none;
@@ -2084,8 +2153,8 @@ footer > span {
 .playing-card {
   position: relative;
   display: block;
-  width: 122px;
-  height: 174px;
+  width: var(--hand-card-w, 122px);
+  height: var(--hand-card-h, 174px);
   padding: 0;
   overflow: hidden;
   background:
@@ -2700,8 +2769,67 @@ footer > span {
     left: 16px;
   }
 
+  .sort-tray {
+    right: 220px;
+  }
+
   .hand-label {
-    width: 112px;
+    right: 404px;
+    left: 16px;
+    width: auto;
+  }
+}
+
+/* Laptop-height desktops. The table is one fixed vertical stack, so instead of
+   letting the felt grow into the seats the hand cards shrink and every band
+   above them follows. min-height keeps phone landscape out of these tiers. */
+@media (min-width: 761px) and (min-height: 601px) and (max-height: 900px) {
+  .table-header {
+    min-height: 66px;
+  }
+
+  .table-stage {
+    --hand-card-h: clamp(122px, calc(26vh - 55px), 174px);
+    --hand-card-w: calc(var(--hand-card-h) * 0.7011);
+    --hand-header-h: 46px;
+    --hand-zone-h: calc(var(--hand-card-h) + 70px);
+    --felt-min-h: 132px;
+    --felt-top-reserve: 186px;
+  }
+
+  .score-ribbon {
+    top: 72px;
+  }
+
+  .seat-top {
+    top: 120px;
+  }
+
+  .hand-label {
+    top: 11px;
+  }
+
+  .sort-tray {
+    top: 9px;
+  }
+}
+
+@media (min-width: 761px) and (min-height: 601px) and (max-height: 700px) {
+  .table-header {
+    min-height: 56px;
+  }
+
+  .table-stage {
+    --felt-min-h: 120px;
+    --felt-top-reserve: 174px;
+  }
+
+  .score-ribbon {
+    top: 60px;
+  }
+
+  .seat-top {
+    top: 108px;
   }
 }
 
@@ -2981,7 +3109,7 @@ footer > span {
   }
 
   .seat-copy strong {
-    max-width: 70px;
+    max-width: 96px;
     font-size: 11px;
   }
 
@@ -3016,6 +3144,7 @@ footer > span {
     top: 39%;
     width: 90vw;
     height: 215px;
+    transform: translate(-50%, -50%);
   }
 
   .mini-card-row {
@@ -3035,10 +3164,14 @@ footer > span {
   .action-callout {
     bottom: calc(var(--portrait-zone-height) + env(safe-area-inset-bottom) + 7px);
     width: calc(100% - 34px);
+    max-width: none;
     min-height: 28px;
     justify-content: center;
+    overflow: visible;
     font-size: 9px;
     text-align: center;
+    text-overflow: clip;
+    white-space: normal;
   }
 
   .hint-callout {
@@ -3068,8 +3201,11 @@ footer > span {
     right: 144px;
     bottom: auto;
     left: 12px;
-    width: auto;
+    display: flex;
     flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    width: auto;
   }
 
   .hand-label b {
@@ -3182,7 +3318,9 @@ footer > span {
     right: 2px;
     bottom: calc(50px + env(safe-area-inset-bottom));
     left: 2px;
+    display: block;
     height: auto;
+    padding: 0;
     overflow: visible;
   }
 
@@ -3421,6 +3559,7 @@ footer > span {
     top: 40%;
     width: 52vw;
     height: 156px;
+    transform: translate(-50%, -50%);
   }
 
   .center-mark {
@@ -3476,6 +3615,9 @@ footer > span {
     right: auto;
     bottom: auto;
     left: 11px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
     width: 136px;
   }
 
@@ -3598,6 +3740,7 @@ footer > span {
     bottom: 0;
     left: 148px;
     height: auto;
+    padding: 0;
     overflow-x: auto;
     overflow-y: hidden;
   }

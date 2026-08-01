@@ -6,7 +6,8 @@ import {
   useState,
   type CSSProperties,
   type MouseEvent,
-  type PointerEvent as ReactPointerEvent
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent
 } from "react";
 import { recommendBestPlay } from "../../games/best-play";
 import { suitGlyph } from "../../games/cards";
@@ -160,6 +161,8 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
       ? 8
       : 9
   );
+  const [handEdges, setHandEdges] = useState({ start: false, end: false });
+  const handScrollRef = useRef<HTMLDivElement | null>(null);
   const dragState = useRef<{
     active: boolean;
     pointerId: number;
@@ -262,6 +265,40 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
       )
     );
   }, [handLayout, sortedHand.length]);
+
+  // The rail only scrolls when the spread hand is wider than its viewport, so the
+  // edge fades are the affordance that says "there are more cards this way".
+  useEffect(() => {
+    const rail = handScrollRef.current;
+    if (!rail) return;
+    const measure = () => {
+      const scrollable = getComputedStyle(rail).overflowX !== "visible";
+      const maxScroll = rail.scrollWidth - rail.clientWidth;
+      const canScroll = scrollable && maxScroll > 4;
+      setHandEdges((edges) => {
+        const next = {
+          start: canScroll && rail.scrollLeft > 4,
+          end: canScroll && rail.scrollLeft < maxScroll - 4
+        };
+        return edges.start === next.start && edges.end === next.end ? edges : next;
+      });
+    };
+    measure();
+    rail.addEventListener("scroll", measure, { passive: true });
+    const observer = new ResizeObserver(measure);
+    observer.observe(rail);
+    return () => {
+      rail.removeEventListener("scroll", measure);
+      observer.disconnect();
+    };
+  }, [handRailWidth, sortedHand.length]);
+
+  const scrollHandByWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    const rail = event.currentTarget;
+    if (rail.scrollWidth <= rail.clientWidth) return;
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+    rail.scrollLeft += event.deltaY;
+  };
 
   const applyDragSelection = useCallback((cardId: string, mode: DragMode) => {
     const drag = dragState.current;
@@ -596,13 +633,17 @@ export function GameTable({ room, onAction, onInvite, onRules }: Props) {
             )}
           </div>
           <div
-            className="hand-scroll"
+            className={`hand-scroll ${handEdges.start ? "hand-fade-start" : ""} ${
+              handEdges.end ? "hand-fade-end" : ""
+            }`}
+            ref={handScrollRef}
+            onWheel={scrollHandByWheel}
             role="group"
             aria-label={`Your ${room.hand.length}-card hand. Tap or drag across cards to select combinations.`}
           >
             <div
               className={`player-hand ${dragSelecting ? "drag-selecting" : ""}`}
-              style={{ width: `${handRailWidth}px` }}
+              style={{ "--hand-rail-width": `${handRailWidth}px` } as CSSProperties}
             >
               {sortedHand.map((card, index) => (
                 <CardFace

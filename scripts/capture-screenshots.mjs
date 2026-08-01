@@ -189,6 +189,199 @@ async function verifyHintPlacementAndActions(page) {
   }
 }
 
+function overlaps(a, b, tolerance = 1) {
+  return (
+    a.x < b.x + b.width - tolerance &&
+    b.x < a.x + a.width - tolerance &&
+    a.y < b.y + b.height - tolerance &&
+    b.y < a.y + a.height - tolerance
+  );
+}
+
+async function boxes(page, selectors) {
+  const measured = {};
+  for (const [name, selector] of Object.entries(selectors)) {
+    measured[name] = await page.locator(selector).boundingBox();
+    if (!measured[name]) throw new Error(`Could not measure ${selector}.`);
+  }
+  return measured;
+}
+
+/** Fails when something with a higher stacking order paints over `selector`. */
+async function verifyNothingCovers(page, selector, label) {
+  const blocker = await page.evaluate((target) => {
+    const element = document.querySelector(target);
+    if (!element) return "a missing element";
+    const box = element.getBoundingClientRect();
+    const probes = [
+      [box.x + box.width / 2, box.y + box.height / 2],
+      [box.x + 6, box.y + box.height / 2],
+      [box.right - 6, box.y + box.height / 2]
+    ];
+    for (const [x, y] of probes) {
+      const top = document.elementFromPoint(x, y);
+      if (!top) return "the viewport edge";
+      if (top !== element && !element.contains(top)) {
+        return `.${[...top.classList].join(".") || top.tagName.toLowerCase()}`;
+      }
+    }
+    return null;
+  }, selector);
+  if (blocker) throw new Error(`${label} is painted behind ${blocker}.`);
+}
+
+/**
+ * The spread rail must never park a card outside its scroll viewport: it is
+ * centred while it fits and flush-left plus scrollable once it does not.
+ */
+async function verifyDesktopHandRail(page) {
+  const rail = page.locator(".hand-scroll");
+  const cards = page.locator(".player-hand .playing-card");
+  const frame = await rail.boundingBox();
+  if (!frame) throw new Error("Desktop hand rail is missing.");
+  const metrics = await rail.evaluate((element) => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+    paddingLeft: Number.parseFloat(getComputedStyle(element).paddingLeft),
+    paddingRight: Number.parseFloat(getComputedStyle(element).paddingRight)
+  }));
+  const scrollable = metrics.scrollWidth > metrics.clientWidth + 1;
+
+  const first = await cards.first().boundingBox();
+  if (!first) throw new Error("Could not measure the first desktop hand card.");
+  if (first.x < frame.x - 0.5) {
+    throw new Error(
+      `The first desktop hand card starts ${(frame.x - first.x).toFixed(1)}px outside the rail and cannot be scrolled into view.`
+    );
+  }
+  if (first.x + first.width > frame.x + frame.width + 0.5) {
+    throw new Error("The first desktop hand card is clipped by the right edge of the rail.");
+  }
+
+  if (scrollable) {
+    const classes = await rail.getAttribute("class");
+    if (!classes.includes("hand-fade-end")) {
+      throw new Error("An overflowing desktop hand rail shows no scroll affordance.");
+    }
+    await rail.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth;
+    });
+    await page.waitForTimeout(60);
+    const last = await cards.last().boundingBox();
+    if (!last || last.x + last.width > frame.x + frame.width + 0.5 || last.x < frame.x - 0.5) {
+      throw new Error("The last desktop hand card is not reachable inside the rail.");
+    }
+    const scrolledClasses = await rail.getAttribute("class");
+    if (!scrolledClasses.includes("hand-fade-start")) {
+      throw new Error("A scrolled desktop hand rail drops its start-edge affordance.");
+    }
+    await rail.evaluate((element) => {
+      element.scrollLeft = 0;
+    });
+    await page.waitForTimeout(60);
+  } else {
+    const hand = await page.locator(".player-hand").boundingBox();
+    if (!hand) throw new Error("Could not measure the desktop hand rail contents.");
+    const startGap = hand.x - (frame.x + metrics.paddingLeft);
+    const endGap = frame.x + frame.width - metrics.paddingRight - (hand.x + hand.width);
+    if (Math.abs(startGap - endGap) > 2) {
+      throw new Error("A desktop hand rail that fits its viewport is not centred.");
+    }
+  }
+}
+
+/** The hand-zone header must stay readable and clear of the cards below it. */
+async function verifyDesktopHandLabel(page) {
+  const rail = await page.locator(".hand-scroll").boundingBox();
+  const tray = await page.locator(".sort-tray").boundingBox();
+  if (!rail || !tray) throw new Error("Could not measure the desktop hand header.");
+  const parts = await page.locator(".hand-label > *").evaluateAll((elements) =>
+    elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return {
+        text: element.textContent.trim().slice(0, 40),
+        truncated: element.scrollWidth > element.clientWidth + 1,
+        primary: element.tagName === "B",
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height
+      };
+    })
+  );
+  if (parts.length === 0) throw new Error("The desktop hand header rendered no content.");
+  for (const part of parts) {
+    if (part.primary && part.truncated) {
+      throw new Error(`The desktop hand label truncates "${part.text}".`);
+    }
+    if (part.y + part.height > rail.y + 1) {
+      throw new Error(`The desktop hand label line "${part.text}" is buried under the cards.`);
+    }
+    if (overlaps(part, tray)) {
+      throw new Error(`The desktop hand label line "${part.text}" collides with the sort tray.`);
+    }
+  }
+}
+
+/**
+ * Seat badge, hint and last-action share one column above the hand. They must
+ * stack without touching, and the status line must never hide behind the badge.
+ */
+async function verifyDesktopStatusStack(page) {
+  const measured = await boxes(page, {
+    action: ".action-callout",
+    seat: ".seat-bottom",
+    hand: ".hand-zone",
+    center: ".center-table",
+    seatTop: ".seat-top",
+    ribbon: ".score-ribbon"
+  });
+  if (overlaps(measured.action, measured.seat)) {
+    throw new Error("The last-action callout collides with the bottom seat badge.");
+  }
+  if (overlaps(measured.action, measured.hand)) {
+    throw new Error("The last-action callout collides with the hand zone.");
+  }
+  if (overlaps(measured.seat, measured.center)) {
+    throw new Error("The bottom seat badge collides with the played cards.");
+  }
+  if (overlaps(measured.seatTop, measured.center)) {
+    throw new Error("The top seat badge collides with the played cards.");
+  }
+  if (overlaps(measured.ribbon, measured.center)) {
+    throw new Error("The score ribbon collides with the played cards.");
+  }
+  if (measured.hand.y - (measured.action.y + measured.action.height) > 60) {
+    throw new Error("The last-action callout drifted away from the hand it describes.");
+  }
+  await verifyNothingCovers(page, ".action-callout", "The last-action callout");
+
+  await page.getByRole("button", { name: "Suggest best play" }).click();
+  await page.locator(".hint-callout").waitFor({ timeout: 3_000 });
+  const withHint = await boxes(page, {
+    hint: ".hint-callout",
+    action: ".action-callout",
+    seat: ".seat-bottom",
+    hand: ".hand-zone"
+  });
+  if (overlaps(withHint.hint, withHint.seat)) {
+    throw new Error("The best-play hint collides with the bottom seat badge.");
+  }
+  if (overlaps(withHint.hint, withHint.action)) {
+    throw new Error("The best-play hint collides with the last-action callout.");
+  }
+  if (overlaps(withHint.hint, withHint.hand)) {
+    throw new Error("The best-play hint collides with the hand zone.");
+  }
+  await verifyNothingCovers(page, ".hint-callout", "The best-play hint");
+  await verifyNothingCovers(page, ".action-callout", "The last-action callout");
+  await page.getByRole("button", { name: "Dismiss play hint" }).click();
+  await page.locator(".hint-callout").waitFor({ state: "detached" });
+  if ((await page.locator(".player-hand .playing-card.selected").count()) > 0) {
+    await page.getByRole("button", { name: "Clear selected cards" }).click();
+  }
+}
+
 async function verifyDesktopTable(page) {
   const viewport = page.viewportSize();
   const stage = await page.locator(".table-stage").boundingBox();
@@ -204,8 +397,18 @@ async function verifyDesktopTable(page) {
   ) {
     throw new Error("The desktop playing surface is not using the full viewport.");
   }
-  if (firstCard.width < 118 || firstCard.height < 170) {
-    throw new Error("Desktop hand cards are below the large-format readability target.");
+  // Laptop-height desktops shrink the cards on purpose (see the max-height
+  // tiers in styles.css); anything shorter than that curve is a regression.
+  const expectedCardHeight = Math.min(174, Math.max(122, 0.26 * viewport.height - 55));
+  if (
+    firstCard.height < expectedCardHeight - 2 ||
+    firstCard.width < expectedCardHeight * 0.7011 - 2
+  ) {
+    throw new Error(
+      `Desktop hand cards (${Math.round(firstCard.width)}x${Math.round(
+        firstCard.height
+      )}) are below the readability target for a ${viewport.height}px-tall viewport.`
+    );
   }
   if (firstCard.y < 0 || firstCard.y + firstCard.height > viewport.height + 1) {
     throw new Error("A large desktop hand card is clipped outside the viewport.");
@@ -217,6 +420,9 @@ async function verifyDesktopTable(page) {
       throw new Error("A desktop center-play card is below the readability target.");
     }
   }
+  await verifyDesktopHandRail(page);
+  await verifyDesktopHandLabel(page);
+  await verifyDesktopStatusStack(page);
 }
 
 async function verifyLandscapeHand(page) {
@@ -420,6 +626,22 @@ try {
       path: path.join(screenshotDir, "05-guandan-table.png"),
       fullPage: false
     });
+    // Laptop viewports are the common desktop case, and the stage is a fixed
+    // vertical stack: re-run every table assertion at the short end of it.
+    for (const viewport of [
+      { width: 1440, height: 800 },
+      { width: 1280, height: 720 }
+    ]) {
+      await page.setViewportSize(viewport);
+      await settle(page);
+      await verifyDesktopTable(page);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await settle(page);
+    await page.screenshot({
+      path: path.join(screenshotDir, "15-guandan-laptop-table.png"),
+      fullPage: false
+    });
     await context.close();
   }
 
@@ -509,7 +731,7 @@ try {
   await verifyMobileFriendJoin(browser);
   await verifyOffTurnPreselection(browser);
 
-  console.log(`Captured 14 screenshots in ${path.relative(projectRoot, screenshotDir)}/`);
+  console.log(`Captured 15 screenshots in ${path.relative(projectRoot, screenshotDir)}/`);
 } finally {
   await browser?.close();
   server.kill("SIGTERM");

@@ -33,6 +33,10 @@ A separate **Hint** button analyzes only your hand and public table information.
 | --- | --- |
 | ![Sheng Ji table with AI opponents](docs/screenshots/04-shengji-table.png) | ![Guan Dan table with AI opponents](docs/screenshots/05-guandan-table.png) |
 
+The same table on a 1280x720 laptop viewport, where the hand cards and every band around them scale down together:
+
+![Guan Dan table on a laptop viewport](docs/screenshots/15-guandan-laptop-table.png)
+
 ### Nearby-friends room
 
 ![QR-code friends lobby](docs/screenshots/03-qr-friends-lobby.png)
@@ -134,7 +138,7 @@ npx playwright install chromium
 npm run screenshots
 ```
 
-The script builds the production app, starts an isolated server on port `4199`, creates real rooms for both games, waits for the human turn, and replaces the fourteen images in `docs/screenshots/`. Browser checks verify the full-viewport desktop surface, large-format desktop hand and center cards, 3-row standard-phone and 4-row narrow-phone layouts at a minimum 38px pitch, 44px action targets, corrected Hint/status placement, drag-across selection, off-turn selection persistence, and Best Play selection without automatic submission. Landscape verifies a readable 32px-or-better card pitch, horizontal scrolling, and no unintended vertical scrolling. The harness also verifies that a phone player’s chosen zodiac survives joining and appears at the table. Guan Dan captures deliberately wait for a hand containing a heart-level wild card so its special treatment remains visually covered.
+The script builds the production app, starts an isolated server on port `4199`, creates real rooms for both games, waits for the human turn, and replaces the fifteen images in `docs/screenshots/`. Browser checks verify the full-viewport desktop surface, height-appropriate desktop hand and center cards, a hand rail that is centered when it fits and edge-faded plus fully scrollable when it does not, a single non-truncating hand header, a status stack (seat badge, hint, last action) that never overlaps or is painted over - all re-run at 1440x800 and 1280x720 laptop viewports - 3-row standard-phone and 4-row narrow-phone layouts at a minimum 38px pitch, 44px action targets, corrected Hint/status placement, drag-across selection, off-turn selection persistence, and Best Play selection without automatic submission. Landscape verifies a readable 32px-or-better card pitch, horizontal scrolling, and no unintended vertical scrolling. The harness also verifies that a phone player’s chosen zodiac survives joining and appears at the table. Guan Dan captures deliberately wait for a hand containing a heart-level wild card so its special treatment remains visually covered.
 
 ## Project map
 
